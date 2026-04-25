@@ -376,7 +376,7 @@ final class MedicationVM: ObservableObject {
         }
 
         struct Created: Decodable {
-            let id: Int
+            let id: String
         }
 
         for var item in importItems {

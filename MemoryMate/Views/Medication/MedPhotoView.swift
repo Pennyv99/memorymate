@@ -3,9 +3,18 @@
 //  MemoryMate
 //
 
+import Combine
 import PhotosUI
 import SwiftUI
 import UIKit
+
+private let medPipelineWaitNudges: [String] = [
+    "Stretch your fingers for a moment.",
+    "Notice your breathing — in and out.",
+    "This step uses on-device Vision, then your Pi for Gemma.",
+    "You can glance away from the screen for a bit.",
+    "Thanks for waiting — almost done.",
+]
 
 private enum PhotoPickError: LocalizedError {
     case couldNotLoadData
@@ -35,8 +44,10 @@ struct MedPhotoView: View {
     @State private var showCamera = false
     @State private var isVisionExpanded = false
     @State private var isGemmaExpanded = true
+    @State private var medWaitNudgeIndex = 0
 
     private let melangePipeline = PrescriptionPhotoMelangePipeline()
+    private let medWaitNudgeTimer = Timer.publish(every: 1.8, on: .main, in: .common).autoconnect()
 
     private var isBusy: Bool { isOCRRunning || isLLMRunning }
 
@@ -150,6 +161,41 @@ struct MedPhotoView: View {
                 resetAnalysisOutput()
             }
         }
+        .overlay {
+            if isBusy {
+                ZStack {
+                    Color.black.opacity(0.22)
+                        .ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.15)
+                        Text(isOCRRunning ? "Vision OCR" : "Gemma")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(isOCRRunning ? "Reading text from your photo…" : "Turning lines into medication rows…")
+                            .font(.subheadline.weight(.medium))
+                            .multilineTextAlignment(.center)
+                        Text(medPipelineWaitNudges[medWaitNudgeIndex % medPipelineWaitNudges.count])
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(26)
+                    .frame(maxWidth: 300)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(.ultraThickMaterial)
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 24, y: 12)
+                }
+                .allowsHitTesting(true)
+            }
+        }
+        .onReceive(medWaitNudgeTimer) { _ in
+            guard isBusy else { return }
+            medWaitNudgeIndex = (medWaitNudgeIndex + 1) % medPipelineWaitNudges.count
+        }
     }
 
     private func loadImage(from item: PhotosPickerItem?) async {
@@ -176,6 +222,7 @@ struct MedPhotoView: View {
         gemmaSummary = nil
 
         isOCRRunning = true
+        medWaitNudgeIndex = 0
         let ocrText: String
         do {
             ocrText = try await melangePipeline.visionOCRText(from: image)
@@ -194,6 +241,7 @@ struct MedPhotoView: View {
         print(ocrBlock)
 
         isLLMRunning = true
+        medWaitNudgeIndex = 0
         let gemmaRaw: String
         do {
             gemmaRaw = try await melangePipeline.medicationsJSON(fromOCRText: ocrText)

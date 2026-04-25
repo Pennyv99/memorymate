@@ -88,6 +88,28 @@ actor APIService {
         }
     }
 
+    /// POST JSON, return raw body (e.g. MP3 from `/agent-voice`).
+    func postReturningData<B: Encodable>(_ path: String, body: B) async throws -> Data {
+        let url = try makeURL(path)
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(body)
+        let (data, resp): (Data, URLResponse)
+        do {
+            (data, resp) = try await session.data(for: req)
+        } catch {
+            throw APIError.networkFailure(error)
+        }
+        guard let http = resp as? HTTPURLResponse else {
+            throw APIError.httpError(0)
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw APIError.httpError(http.statusCode)
+        }
+        return data
+    }
+
     func enrollFace(name: String, relation: String, images: [UIImage]) async throws {
         let url = try makeURL("/enroll-face")
         let boundary = UUID().uuidString
@@ -102,7 +124,7 @@ actor APIService {
         for (i, img) in images.enumerated() {
             guard let jpeg = img.jpegData(compressionQuality: 0.85) else { continue }
             body.append("--\(boundary)\r\n")
-            body.append("Content-Disposition: form-data; name=\"photos\"; filename=\"photo_\(i).jpg\"\r\n")
+            body.append("Content-Disposition: form-data; name=\"files\"; filename=\"photo_\(i).jpg\"\r\n")
             body.append("Content-Type: image/jpeg\r\n\r\n")
             body.append(jpeg)
             body.append("\r\n")

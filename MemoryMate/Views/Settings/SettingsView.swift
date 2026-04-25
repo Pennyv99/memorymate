@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @StateObject private var vm = SettingsVM()
@@ -34,7 +35,16 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .onTapGesture {
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder),
+                    to: nil,
+                    from: nil,
+                    for: nil
+                )
+            }
         }
+        .scrollDismissesKeyboard(.immediately)
     }
 
     @ViewBuilder

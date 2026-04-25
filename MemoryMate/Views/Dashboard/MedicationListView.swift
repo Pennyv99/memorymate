@@ -38,7 +38,7 @@ struct MedicationListView: View {
                     for index in offsets {
                         let item = medications[index]
                         do {
-                            try await APIService.shared.delete("/medications/\(item.id)")
+                            try await APIService.shared.delete("/medication/\(item.id)")
                             await reload()
                         } catch {
                             appError.present(error)

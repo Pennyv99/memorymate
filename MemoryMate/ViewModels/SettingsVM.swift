@@ -28,7 +28,7 @@ final class SettingsVM: ObservableObject {
     func testConnection() async {
         connectionStatus = .checking
         do {
-            let _: [String: String] = try await APIService.shared.get("/health")
+            let _: HealthResponse = try await APIService.shared.get("/health")
             connectionStatus = .online
         } catch {
             connectionStatus = .offline
