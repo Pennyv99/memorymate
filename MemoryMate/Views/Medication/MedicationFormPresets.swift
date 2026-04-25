@@ -5,30 +5,6 @@
 
 import Foundation
 
-enum MedicationVoiceCaptureField: String, CaseIterable, Identifiable, Hashable {
-    case drugName = "Drug name"
-    case dose = "Dose"
-    case condition = "Condition"
-
-    var id: String { rawValue }
-
-    var systemImage: String {
-        switch self {
-        case .drugName: "pill.fill"
-        case .dose: "cross.vial.fill"
-        case .condition: "heart.text.square.fill"
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .drugName: "Speak only the medicine name."
-        case .dose: "Speak amount and unit, e.g. “five milligrams” or “one tablet”."
-        case .condition: "Speak when to take or what it treats."
-        }
-    }
-}
-
 enum MedicationFormPresets {
     static let conditionSuggestions: [String] = [
         "Blood pressure",

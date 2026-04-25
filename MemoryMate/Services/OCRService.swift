@@ -44,6 +44,8 @@ struct OCRService {
                 let text = (request.results as? [VNRecognizedTextObservation])?
                     .compactMap { $0.topCandidates(1).first?.string }
                     .joined(separator: "\n") ?? ""
+                print("[MemoryMate][VisionOCR] characters=\(text.count)")
+                print(text)
                 box.resume { continuation.resume(returning: text) }
             }
             request.recognitionLevel = .accurate

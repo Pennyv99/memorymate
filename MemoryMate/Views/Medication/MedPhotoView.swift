@@ -27,10 +27,18 @@ struct MedPhotoView: View {
 
     @State private var pickerItem: PhotosPickerItem?
     @State private var image: UIImage?
-    @State private var isReading = false
-    @State private var extractedSummary: String?
+    @State private var isOCRRunning = false
+    @State private var isLLMRunning = false
+    @State private var ocrSummary: String?
+    @State private var gemmaSummary: String?
+    @State private var parseFooter: String?
+    @State private var showCamera = false
+    @State private var isVisionExpanded = false
+    @State private var isGemmaExpanded = true
 
-    private let ocr = OCRService()
+    private let melangePipeline = PrescriptionPhotoMelangePipeline()
+
+    private var isBusy: Bool { isOCRRunning || isLLMRunning }
 
     var body: some View {
         Form {
@@ -40,6 +48,15 @@ struct MedPhotoView: View {
                 }
                 .onChange(of: pickerItem) { _, newValue in
                     Task { await loadImage(from: newValue) }
+                }
+
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button {
+                        resetAnalysisOutput()
+                        showCamera = true
+                    } label: {
+                        Label("Take photo", systemImage: "camera.fill")
+                    }
                 }
 
                 if let image {
@@ -55,34 +72,66 @@ struct MedPhotoView: View {
                 }
             }
 
-            if let extractedSummary {
-                Section("Last recognition") {
-                    Text(extractedSummary)
-                        .font(.footnote)
+            if let ocrSummary {
+                Section {
+                    DisclosureGroup("Vision OCR", isExpanded: $isVisionExpanded) {
+                        ScrollView {
+                            Text(ocrSummary)
+                                .font(.footnote)
+                                .foregroundStyle(.primary)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: 220)
+                    }
+                }
+            }
+
+            if let gemmaSummary {
+                Section {
+                    DisclosureGroup("Gemma output", isExpanded: $isGemmaExpanded) {
+                        ScrollView {
+                            Text(gemmaSummary)
+                                .font(.footnote)
+                                .foregroundStyle(.primary)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: 260)
+                    }
+                }
+            }
+
+            if let parseFooter {
+                Section {
+                    Text(parseFooter)
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
                 }
             }
 
             Section {
                 Button {
-                    Task { await runOCR() }
+                    Task { await runOCRThenLLM() }
                 } label: {
-                    if isReading {
-                        Label("Reading…", systemImage: "text.viewfinder")
+                    if isOCRRunning {
+                        Label("Reading prescription…", systemImage: "text.viewfinder")
+                    } else if isLLMRunning {
+                        Label("Structuring medications…", systemImage: "wand.and.stars")
                     } else {
-                        Label("Read text from photo", systemImage: "text.viewfinder")
+                        Label("Run Vision OCR + Gemma", systemImage: "wand.and.stars")
                     }
                 }
-                .disabled(image == nil || isReading)
+                .disabled(image == nil || isBusy)
             } footer: {
                 if image == nil, pickerItem != nil {
                     Text("Still loading the image, or it failed to load. Check the error alert if one appeared.")
                 } else if image == nil {
-                    Text("Choose a photo first. The button stays disabled until the image is ready.")
+                    Text("Choose or take a photo first. The button stays disabled until the image is ready.")
                 }
             }
         }
+        .safeAreaPadding(.bottom, 40)
         .navigationTitle("Photo entry")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -91,15 +140,22 @@ struct MedPhotoView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraImagePicker(image: $image)
+                .ignoresSafeArea()
+        }
+        .onChange(of: image) { _, newImage in
+            if newImage != nil {
+                pickerItem = nil
+                resetAnalysisOutput()
+            }
+        }
     }
 
     private func loadImage(from item: PhotosPickerItem?) async {
-        guard let item else {
-            image = nil
-            extractedSummary = nil
-            return
-        }
-        extractedSummary = nil
+        // Do not clear `image` when `item` is nil — the user may have set it with the camera.
+        guard let item else { return }
+        resetAnalysisOutput()
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else {
                 throw PhotoPickError.couldNotLoadData
@@ -114,23 +170,69 @@ struct MedPhotoView: View {
         }
     }
 
-    private func runOCR() async {
+    private func runOCRThenLLM() async {
         guard let image else { return }
-        isReading = true
-        defer { isReading = false }
+        parseFooter = nil
+        gemmaSummary = nil
+
+        isOCRRunning = true
+        let ocrText: String
         do {
-            let text = try await ocr.recognizeText(from: image)
-            vm.applyImportedMedications(from: text)
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty {
-                extractedSummary = "No text was recognized. Try a sharper photo, better lighting, or enter details manually on Review."
-            } else {
-                let preview = trimmed.count > 600 ? String(trimmed.prefix(600)) + "…" : trimmed
-                extractedSummary = "Raw text (\(trimmed.count) chars):\n\(preview)"
-            }
+            ocrText = try await melangePipeline.visionOCRText(from: image)
         } catch {
-            extractedSummary = nil
+            isOCRRunning = false
+            ocrSummary = nil
+            appError.present(error)
+            return
+        }
+        isOCRRunning = false
+
+        let ocrTrim = ocrText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let ocrBlock = "Vision OCR (\(ocrTrim.count) chars):\n\(Self.debugPreview(ocrTrim, limit: 12_000))"
+        ocrSummary = ocrBlock
+        print("[MemoryMate][VisionOCR][complete] chars=\(ocrTrim.count)")
+        print(ocrBlock)
+
+        isLLMRunning = true
+        let gemmaRaw: String
+        do {
+            gemmaRaw = try await melangePipeline.medicationsJSON(fromOCRText: ocrText)
+        } catch {
+            isLLMRunning = false
+            gemmaSummary = nil
+            parseFooter = "Gemma generation failed."
+            appError.present(error)
+            return
+        }
+        isLLMRunning = false
+
+        let gemmaPreviewLimit = 2_200
+        let gemmaBlock = "Gemma output (\(gemmaRaw.count) chars):\n\(Self.debugPreview(gemmaRaw, limit: gemmaPreviewLimit))"
+        gemmaSummary = gemmaBlock
+        print("[MemoryMate][Gemma][complete] chars=\(gemmaRaw.count)")
+
+        do {
+            try vm.applyImportedMedications(fromStructuredGemmaOutput: gemmaRaw)
+            parseFooter = "Parsed into Review list — open Review to edit all rows."
+        } catch {
+            let msg = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            vm.resetImportSession()
+            parseFooter = "Gemma parse failed: \(msg). No OCR fallback — see Xcode console for [MemoryMate][Gemma][raw] full output."
             appError.present(error)
         }
+    }
+
+    private func resetAnalysisOutput() {
+        ocrSummary = nil
+        gemmaSummary = nil
+        parseFooter = nil
+        isVisionExpanded = false
+        isGemmaExpanded = true
+    }
+
+    /// Long transcript preview for the form (scrollable + text selection).
+    private static func debugPreview(_ s: String, limit: Int) -> String {
+        guard s.count > limit else { return s }
+        return String(s.prefix(limit)) + "\n… truncated, \(s.count) chars total"
     }
 }

@@ -48,6 +48,8 @@ struct MedConfirmListView: View {
                     Text("Medications (\(vm.importItems.count))")
                 } footer: {
                     Text("Tap a row to edit. Save uploads every row to the Pi in order (local network only).")
+                        .font(.footnote)
+                        .foregroundStyle(Color(uiColor: .label).opacity(0.72))
                 }
             }
         }

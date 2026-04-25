@@ -12,16 +12,20 @@ enum MedicationFormTheme {
     static let accent = Color(red: 0.20, green: 0.42, blue: 0.96)
     static let accentDeep = Color(red: 0.10, green: 0.22, blue: 0.55)
     static let violet = Color(red: 0.48, green: 0.36, blue: 0.98)
+    static let inputBackground = Color(uiColor: .secondarySystemBackground)
+    static let inputBorder = Color.primary.opacity(0.18)
+    static let inputText = Color.primary
 
+    /// Grouped-background tones only (no near-black corner) so footnotes and tab bar stay readable in dark mode.
     static var pageGradient: LinearGradient {
         LinearGradient(
             colors: [
-                Color(red: 0.93, green: 0.95, blue: 1.0),
-                Color(red: 0.97, green: 0.94, blue: 1.0),
+                Color(uiColor: .systemGroupedBackground),
+                Color(uiColor: .secondarySystemGroupedBackground),
                 Color(uiColor: .systemGroupedBackground),
             ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+            startPoint: .top,
+            endPoint: .bottom
         )
     }
 }

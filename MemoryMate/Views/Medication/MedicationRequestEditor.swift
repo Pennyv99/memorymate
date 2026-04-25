@@ -24,10 +24,15 @@ struct MedicationRequestEditor: View {
                             .foregroundStyle(.secondary)
                         TextField("e.g. Pantor 40", text: drugBinding)
                             .font(.body.weight(.medium))
+                            .foregroundStyle(MedicationFormTheme.inputText)
                             .padding(14)
                             .background {
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(Color(.tertiarySystemGroupedBackground))
+                                    .fill(MedicationFormTheme.inputBackground)
+                            }
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(MedicationFormTheme.inputBorder, lineWidth: 1)
                             }
                     }
                 }
@@ -45,12 +50,17 @@ struct MedicationRequestEditor: View {
                             TextField("Amount", text: $doseAmount)
                                 .keyboardType(.decimalPad)
                                 .font(.title3.weight(.semibold))
+                                .foregroundStyle(MedicationFormTheme.inputText)
                                 .multilineTextAlignment(.center)
                                 .padding(.vertical, 12)
                                 .padding(.horizontal, 16)
                                 .background {
                                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(Color(.tertiarySystemGroupedBackground))
+                                        .fill(MedicationFormTheme.inputBackground)
+                                }
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(MedicationFormTheme.inputBorder, lineWidth: 1)
                                 }
                                 .onChange(of: doseAmount) { _, _ in commitStructuredDose() }
 
@@ -74,10 +84,15 @@ struct MedicationRequestEditor: View {
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                                 .font(.footnote)
+                                .foregroundStyle(MedicationFormTheme.inputText)
                                 .padding(12)
                                 .background {
                                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .fill(Color(.tertiarySystemGroupedBackground))
+                                        .fill(MedicationFormTheme.inputBackground)
+                                }
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .stroke(MedicationFormTheme.inputBorder, lineWidth: 1)
                                 }
                                 .onChange(of: doseUnit) { _, _ in commitStructuredDose() }
 
@@ -94,10 +109,15 @@ struct MedicationRequestEditor: View {
                             TextField("e.g. 195 mg | 345 mg (complex strengths)", text: doseFreeBinding, axis: .vertical)
                                 .lineLimit(4...10)
                                 .font(.body)
+                                .foregroundStyle(MedicationFormTheme.inputText)
                                 .padding(14)
                                 .background {
                                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(Color(.tertiarySystemGroupedBackground))
+                                        .fill(MedicationFormTheme.inputBackground)
+                                }
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(MedicationFormTheme.inputBorder, lineWidth: 1)
                                 }
                         }
                     }
@@ -127,10 +147,15 @@ struct MedicationRequestEditor: View {
                             .foregroundStyle(.secondary)
                         TextField("Type or combine with picks above", text: conditionBinding, axis: .vertical)
                             .lineLimit(2...6)
+                            .foregroundStyle(MedicationFormTheme.inputText)
                             .padding(14)
                             .background {
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(Color(.tertiarySystemGroupedBackground))
+                                    .fill(MedicationFormTheme.inputBackground)
+                            }
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(MedicationFormTheme.inputBorder, lineWidth: 1)
                             }
                     }
                 }
@@ -151,6 +176,7 @@ struct MedicationRequestEditor: View {
                                     }
                                 ))
                                 .font(.body.monospacedDigit())
+                                .foregroundStyle(MedicationFormTheme.inputText)
                                 Spacer(minLength: 0)
                                 Button(role: .destructive) {
                                     var next = item
